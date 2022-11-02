@@ -1,0 +1,26 @@
+{
+  "name": "webrtc_example",
+  "version": "1.0.0",
+  "description": "WebRTC Example:",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/highboi/webrtc_example.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/highboi/webrtc_example/issues"
+  },
+  "homepage": "https://github.com/highboi/webrtc_example#readme",
+  "dependencies": {
+    "ejs": "^3.1.8",
+    "express": "^4.18.2",
+    "nodemon": "^2.0.20",
+    "uuid": "^9.0.0",
+    "ws": "^8.10.0"
+  }
+}
