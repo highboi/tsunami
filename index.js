@@ -32,6 +32,9 @@ server.on("upgrade", (req, socket, head) => {
 	switch (pathname) {
 		case "/signal":
 			console.log("WebRTC signalling server connection...");
+
+			console.log(req.connection.remoteAddress);
+
 			signalWss.handleUpgrade(req, socket, head, (ws) => {
 				signalWss.emit("connection", ws, req);
 			});
@@ -89,7 +92,7 @@ signalWss.on("connection", async (ws, req) => {
 						return client.userid == messagedata.recipient;
 					});
 
-					var sdpAnswer = JSON.stringify({answer: messagedata.answer, event: "sdp-answer", userid: message.userid});
+					var sdpAnswer = JSON.stringify({answer: messagedata.answer, event: "sdp-answer", userid: messagedata.userid});
 					recipients[0].socket.send(sdpAnswer);
 				}
 
@@ -109,6 +112,78 @@ signalWss.on("connection", async (ws, req) => {
 
 						recipient.socket.send(iceCandidate);
 					}
+				}
+
+				break;
+			case "answer-pong":
+				console.log("ANSWER PONG FROM", messagedata.userid);
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.recipient;
+					});
+
+					console.log(recipients);
+
+					var answerPong = JSON.stringify({event: "answer-pong", userid: messagedata.userid});
+					recipients[0].socket.send(answerPong);
+				}
+
+				break;
+			case "get-peers":
+				console.log("USER REQUESTING PEERS");
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.userid;
+					});
+
+					var peers = room.filter((client) => {
+						return client.userid != messagedata.userid;
+					});
+
+					var peerids = peers.map((peer) => {
+						return peer.userid;
+					});
+
+					console.log(peerids);
+
+					var peersObj = JSON.stringify({event: "get-peers", peers: peerids, userid: messagedata.userid});
+					recipients[0].socket.send(peersObj);
+				}
+
+				break;
+			case "webrtc-failed":
+				console.log("WEBRTC CONNECTION FAILED FOR", messagedata.userid, "SENDING MESSAGE TO", messagedata.recipient);
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.recipient;
+					});
+
+					var failedObj = JSON.stringify({event: "webrtc-failed", userid: messagedata.userid});
+					recipients[0].socket.send(failedObj);
+				}
+
+				break;
+			case "relay-message":
+				console.log("PEER", messagedata.userid, "SENDING MESSAGE TO", messagedata.recipient);
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.recipient;
+					});
+
+					var messageObj = JSON.stringify({event: "relay-message", userid: messagedata.userid, data: messagedata.data});
+					recipients[0].socket.send(messageObj);
 				}
 
 				break;
