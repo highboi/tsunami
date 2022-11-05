@@ -202,6 +202,21 @@ signalWss.on("connection", async (ws, req) => {
 				}
 
 				break;
+			case "relay-get-response":
+				console.log("PEER", messagedata.userid, "RESPONDING WITH DATA", messagedata.value);
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.recipient;
+					});
+
+					var messageObj = JSON.stringify({event: "relay-get-response", userid: messagedata.userid, value: messagedata.value});
+					recipients[0].socket.send(messageObj);
+				}
+
+				break;
 		}
 	});
 });

@@ -133,10 +133,28 @@ signalSocket.onmessage = async (event) => {
 			//log this event
 			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
 
+			//get the data from local storage
+			var value = getLocalData(data.key);
+
+			//send the data if it is not a null value
+			if (value != null) {
+				var valueObj = JSON.stringify({userid: userid, roomid: roomid, event: "relay-get-response", value: value, recipient: data.userid});
+				connections[data.userid].connection.commchannel.send(valueObj);
+			}
+
 			break;
 		case "relay-put":
 			//log this event
-			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + data.value.toString();
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value);
+
+			//store the data in local storage
+			storeLocalData(data.key, data.value);
+
+			break;
+
+		case "relay-get-response":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(messagedata.value);
 
 			break;
 	}
@@ -151,10 +169,28 @@ async function rtcChannelOnMessage(event) {
 			//log this event
 			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
 
+			//get the data from local storage
+			var value = getLocalData(data.key);
+
+			//send the data if it is not a null value
+			if (value != null) {
+				var valueObj = JSON.stringify({userid: userid, roomid: roomid, event: "relay-get-response", value: value, recipient: data.userid});
+				connections[data.userid].connection.commchannel.send(valueObj);
+			}
+
 			break;
 		case "relay-put":
 			//log this event
-			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + data.value.toString();
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value);
+
+			//store the data in local storage
+			storeLocalData(data.key, data.value);
+
+			break;
+
+		case "relay-get-response":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(messagedata.value);
 
 			break;
 	}
@@ -328,4 +364,31 @@ async function getData(key) {
 
 	//return the sent data for reference
 	return dataObj;
+}
+
+//a function to store data in local storage
+function storeLocalData(key, value) {
+	//store the key value pair
+	localStorage.setItem(key, JSON.stringify(value));
+
+	//return the key value pair
+	return [key, value];
+}
+
+//a function to get data from local storage
+function getLocalData(key) {
+	//get the value of the data and return false if it does not exist
+	try {
+		var data = localStorage.getItem(key);
+	} catch (e) {
+		return null;
+	}
+
+	//try to parse the value returned and return the string if it cannot be parsed
+	try {
+		data = JSON.parse(data);
+		return data;
+	} catch (e) {
+		return data;
+	}
 }
