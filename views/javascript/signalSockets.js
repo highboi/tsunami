@@ -273,8 +273,6 @@ async function makeNewConnection(peerid) {
 
 		//set the connection to be ready
 		newConnection.connection.ready = true;
-
-		putData("KEYEXAMPLE", {example: "data"});
 	});
 
 	//listen for ice candidates being generated
@@ -421,5 +419,5 @@ function getLocalData(key) {
 commlistener.addEventListener("commready", (event) => {
 	alert("DATA INTERACTION IS READY");
 
-	//DO ALL DATA INTERACTION IN HERE
+	putData("KEYEXAMPLE", {example: "data"});
 });
