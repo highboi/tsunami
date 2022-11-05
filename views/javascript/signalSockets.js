@@ -131,7 +131,7 @@ signalSocket.onmessage = async (event) => {
 			break;
 		case "relay-get":
 			//log this event
-			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString() + "<br>";
 
 			//get the data from local storage
 			var value = getLocalData(data.key);
@@ -145,7 +145,7 @@ signalSocket.onmessage = async (event) => {
 			break;
 		case "relay-put":
 			//log this event
-			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value);
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value) + "<br>";
 
 			//store the data in local storage
 			storeLocalData(data.key, data.value);
@@ -154,7 +154,7 @@ signalSocket.onmessage = async (event) => {
 
 		case "relay-get-response":
 			//log this event
-			textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(messagedata.value);
+			textLog.innerHTML += "PEER " + data.userid.toString() + " RESPONDED TO GET WITH DATA: " + JSON.stringify(data.value) + "<br>";
 
 			break;
 	}
@@ -347,6 +347,12 @@ async function putData(key, data) {
 
 //a function for broadcasting a get message to get data from peers if available
 async function getData(key) {
+	//get local data first before requesting peers
+	var localdata = getLocalData(key);
+	if (localdata != null) {
+		return localdata;
+	}
+
 	//get peers that are ready to recieve data
 	var peers = Object.values(connections).filter((peer) => {
 		return peer.connection.ready;
