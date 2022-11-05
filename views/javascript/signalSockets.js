@@ -17,6 +17,9 @@ var connections = {};
 //configuration with which stun/turn servers to use with webrtc
 var conf = {'iceServers': [{'urls': ['stun:stun.l.google.com:19302']}]};
 
+//a variable to listen for the commready event to start data interaction
+var commlistener = false;
+
 		/*
 		EVENTS FOR THE SIGNALLING WEBSOCKETS
 		*/
@@ -127,6 +130,10 @@ signalSocket.onmessage = async (event) => {
 
 			//fire the commready event
 			connections[data.userid].connection.dispatchEvent(commEvent);
+			if (!commlistener) {
+				commlistener.dispatchEvent(commEvent);
+				commlistener = true;
+			}
 
 			break;
 		case "relay-get":
@@ -232,6 +239,10 @@ async function makeNewConnection(peerid) {
 
 			//fire the commready event
 			event.target.dispatchEvent(commEvent);
+			if (!commlistener) {
+				commlistener.dispatchEvent(commEvent);
+				commlistener = true;
+			}
 		} else if (event.target.iceConnectionState == "failed") {
 			//log this event
 			textLog.innerHTML += "***<br>PEERS FAILED TO CONNECT, DEFAULTING TO HTTP RELAY<br>***<br>";
@@ -248,6 +259,10 @@ async function makeNewConnection(peerid) {
 
 			//fire the commready event
 			event.target.dispatchEvent(commEvent);
+			if (!commlistener) {
+				commlistener.dispatchEvent(commEvent);
+				commlistener = true;
+			}
 		}
 	};
 
@@ -326,6 +341,9 @@ async function addCandidates(connectionObj) {
 
 //a function for broadcasting a key-value pair to all peers for syncing
 async function putData(key, data) {
+	//store this data locally first for efficiency
+	localStorage.setItem(key, JSON.stringify(data));
+
 	//get peers that are ready to recieve data
 	var peers = Object.values(connections).filter((peer) => {
 		return peer.connection.ready;
@@ -398,3 +416,10 @@ function getLocalData(key) {
 		return data;
 	}
 }
+
+//listen for the commready event to start interacting with data
+commlistener.addEventListener("commready", (event) => {
+	alert("DATA INTERACTION IS READY");
+
+	//DO ALL DATA INTERACTION IN HERE
+});
