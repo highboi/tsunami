@@ -1,4 +1,4 @@
-# Tsunami: The Web 3.0 Protocol
+# Tsunami: The P2P Web Protocol
 
 ![Tsunami Logo](https://github.com/highboi/tsunami/blob/master/tsunami_logo.png)
 
