@@ -172,8 +172,8 @@ signalWss.on("connection", async (ws, req) => {
 				}
 
 				break;
-			case "relay-message":
-				console.log("PEER", messagedata.userid, "SENDING MESSAGE TO", messagedata.recipient);
+			case "relay-put":
+				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
 
 				var room = global.signalClients[messagedata.roomid];
 
@@ -182,7 +182,22 @@ signalWss.on("connection", async (ws, req) => {
 						return client.userid == messagedata.recipient;
 					});
 
-					var messageObj = JSON.stringify({event: "relay-message", userid: messagedata.userid, data: messagedata.data, key: messagedata.key});
+					var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key});
+					recipients[0].socket.send(messageObj);
+				}
+
+				break;
+			case "relay-get":
+				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
+
+				var room = global.signalClients[messagedata.roomid];
+
+				if (typeof room != 'undefined') {
+					var recipients = room.filter((client) => {
+						return client.userid == messagedata.recipient;
+					});
+
+					var messageObj = JSON.stringify({event: "relay-get", userid: messagedata.userid, key: messagedata.key});
 					recipients[0].socket.send(messageObj);
 				}
 

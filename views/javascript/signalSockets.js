@@ -129,7 +129,17 @@ signalSocket.onmessage = async (event) => {
 			var commEvent = new Event("commready");
 
 			//fire the commready event
-			connections[data.userid].dispatchEvent(commEvent);
+			connections[data.userid].connection.dispatchEvent(commEvent);
+
+			break;
+		case "relay-get":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
+
+			break;
+		case "relay-put":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + data.value.toString();
 
 			break;
 	}
@@ -151,6 +161,9 @@ async function makeNewConnection(peerid) {
 
 	//store the peer id in the new connection
 	newConnection.connection.peerid = peerid;
+
+	//store the connection readiness in the connection
+	newConnection.connection.ready = false;
 
 	//wait for the connection to the peer to be established
 	newConnection.connection.oniceconnectionstatechange = (event) => {
@@ -193,7 +206,13 @@ async function makeNewConnection(peerid) {
 
 	//listen for when communication is ready
 	newConnection.connection.addEventListener("commready", (event) => {
-		alert("COMMUNICATION CAN COMMENCE");
+		//log this event in the console
+		textLog.innerHTML += "COMMUNICATION CAN COMMENCE WITH PEER " + event.target.peerid.toString() + "<br>";
+
+		//set the connection to be ready
+		newConnection.connection.ready = true;
+
+		putData("KEYEXAMPLE", {example: "data"});
 	});
 
 	//listen for ice candidates being generated
@@ -256,4 +275,46 @@ async function addCandidates(connectionObj) {
 			console.log(e);
 		}
 	}
+}
+
+//a function for broadcasting a key-value pair to all peers for syncing
+async function putData(key, data) {
+	//get peers that are ready to recieve data
+	var peers = Object.values(connections).filter((peer) => {
+		return peer.connection.ready;
+	});
+
+	//the data object to send to all peers
+	var dataObj = {key: key, value: data, userid: userid, roomid: roomid, event: "relay-put"};
+
+	//send data to all peers ready to recieve data
+	for (var peer of peers) {
+		//set the recipient for this message and send it on the comm channel
+		dataObj.recipient = peer.connection.peerid;
+		peer.connection.commchannel.send(JSON.stringify(dataObj));
+	}
+
+	//return the sent data for reference
+	return dataObj;
+}
+
+//a function for broadcasting a get message to get data from peers if available
+async function getData(key) {
+	//get peers that are ready to recieve data
+	var peers = Object.values(connections).filter((peer) => {
+		return peer.connection.ready;
+	});
+
+	//the data object to send to all peers
+	var dataObj = {key: key, userid: userid, roomid: roomid, event: "relay-get"};
+
+	//send data to all peers ready to recieve data
+	for (var peer of peers) {
+		//set the recipient for this message and send it on the comm channel
+		dataObj.recipient = peer.connection.peerid;
+		peer.connection.commchannel.send(JSON.stringify(dataObj));
+	}
+
+	//return the sent data for reference
+	return dataObj;
 }
