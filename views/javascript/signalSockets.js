@@ -17,9 +17,6 @@ var connections = {};
 //configuration with which stun/turn servers to use with webrtc
 var conf = {'iceServers': [{'urls': ['stun:stun.l.google.com:19302']}]};
 
-//a global variable to store the data channel or messaging socket to send data to peers
-var commChannel;
-
 		/*
 		EVENTS FOR THE SIGNALLING WEBSOCKETS
 		*/
@@ -145,6 +142,24 @@ signalSocket.onmessage = async (event) => {
 	}
 }
 
+//make a function to listen for events on a webrtc data channel instead of a socket channel
+async function rtcChannelOnMessage(event) {
+	var data = JSON.parse(event.data);
+
+	switch (data.event) {
+		case "relay-get":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
+
+			break;
+		case "relay-put":
+			//log this event
+			textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + data.value.toString();
+
+			break;
+	}
+}
+
 		/*
 		WEBRTC FUNCTIONS
 		*/
@@ -174,11 +189,7 @@ async function makeNewConnection(peerid) {
 			textLog.innerHTML += "***<br>PEERS CONNECTED<br>***<br>";
 
 			//listen for data from peers
-			newConnection.connection.commchannel.onmessage = (event) => {
-				console.log(event);
-
-				alert("MESSAGE SENT FROM PEER");
-			};
+			newConnection.connection.commchannel.onmessage = rtcChannelOnMessage;
 
 			//make a new event to initiate communication
 			var commEvent = new Event("commready");
