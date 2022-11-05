@@ -182,7 +182,7 @@ signalWss.on("connection", async (ws, req) => {
 						return client.userid == messagedata.recipient;
 					});
 
-					var messageObj = JSON.stringify({event: "relay-message", userid: messagedata.userid, data: messagedata.data});
+					var messageObj = JSON.stringify({event: "relay-message", userid: messagedata.userid, data: messagedata.data, key: messagedata.key});
 					recipients[0].socket.send(messageObj);
 				}
 

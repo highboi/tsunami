@@ -122,6 +122,15 @@ signalSocket.onmessage = async (event) => {
 			//log this event
 			textLog.innerHTML += "***<br>PEERS FAILED TO CONNECT, DEFAULTING TO HTTP RELAY<br>***<br>";
 
+			//set the communication as the signal socket since http relay will be used
+			connections[data.userid].connection.commchannel = signalSocket;
+
+			//make a new event to initiate communication
+			var commEvent = new Event("commready");
+
+			//fire the commready event
+			connections[data.userid].dispatchEvent(commEvent);
+
 			break;
 	}
 }
@@ -148,14 +157,44 @@ async function makeNewConnection(peerid) {
 		console.log(event.target.iceConnectionState);
 
 		if (event.target.iceConnectionState == "connected") {
-			textLog.innerHTML += "***<br>PEERS CONNECTED<br>***<br>"
+			//log this event
+			textLog.innerHTML += "***<br>PEERS CONNECTED<br>***<br>";
+
+			//listen for data from peers
+			newConnection.connection.commchannel.onmessage = (event) => {
+				console.log(event);
+
+				alert("MESSAGE SENT FROM PEER");
+			};
+
+			//make a new event to initiate communication
+			var commEvent = new Event("commready");
+
+			//fire the commready event
+			event.target.dispatchEvent(commEvent);
 		} else if (event.target.iceConnectionState == "failed") {
+			//log this event
 			textLog.innerHTML += "***<br>PEERS FAILED TO CONNECT, DEFAULTING TO HTTP RELAY<br>***<br>";
 
+			//notify the peer that the connection failed
 			var failedObj = JSON.stringify({event: "webrtc-failed", roomid: roomid, userid: userid, recipient: event.target.peerid});
 			signalSocket.send(failedObj);
+
+			//set the signal socket as the communication channel instead of the webrtc channel
+			event.target.commchannel = signalSocket;
+
+			//make a new event to initiate communication
+			var commEvent = new Event("commready");
+
+			//fire the commready event
+			event.target.dispatchEvent(commEvent);
 		}
 	};
+
+	//listen for when communication is ready
+	newConnection.connection.addEventListener("commready", (event) => {
+		alert("COMMUNICATION CAN COMMENCE");
+	});
 
 	//listen for ice candidates being generated
 	newConnection.connection.onicecandidate = (event) => {
@@ -166,23 +205,8 @@ async function makeNewConnection(peerid) {
 		signalSocket.send(candidate);
 	};
 
-	//make a data channel for this connection
-	newConnection.datachannel = newConnection.connection.createDataChannel("tsunami", {ordered: true});
-
-	//listen for data from peers
-	newConnection.datachannel.onmessage = (event) => {
-		console.log(event);
-
-		alert("MESSAGE SENT FROM PEER");
-	};
-
-	//catch errors with the data channel
-	newConnection.datachannel.onerror = (error) => {
-		console.log(error);
-
-		alert("ERROR ON DATA CHANNEL");
-	};
-
+	//make a data channel for this connection using webrtc
+	newConnection.connection.commchannel = newConnection.connection.createDataChannel("tsunami", {ordered: true});
 
 	return newConnection;
 }
