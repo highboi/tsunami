@@ -2,11 +2,43 @@
 
 <html>
 	<head>
+		<style>
+			body {
+				text-align: center;
+				margin: 0 auto;
+			}
+
+			body > * {
+				margin: 20px;
+			}
+
+			#color-box {
+				margin: 0 auto;
+				width: 600px;
+				height: 600px;
+				border: solid black;
+			}
+
+			#random-color {
+				width: 200px;
+				height: 200px;
+			}
+
+			#text-log {
+				width: 400px;
+				height: 400px;
+				overflow: scroll;
+				border: solid black;
+				margin: 0 auto;
+			}
+		</style>
 	</head>
 	<body>
 		<div id="eventlistener" style="display: none;"></div>
 
 		<h1>INSIDE ROOM ID: <%= roomid %></h1>
+		<div id="color-box"></div>
+		<button id="random-color">Random Color</button>
 		<div id="text-log"></div>
 
 		<script type="text/javascript">
