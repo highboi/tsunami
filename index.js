@@ -33,8 +33,7 @@ server.on("upgrade", (req, socket, head) => {
 		case "/signal":
 			console.log("WebRTC signalling server connection...");
 
-			console.log(req.connection.remoteAddress);
-
+			//handle the connection upgrade to websockets
 			signalWss.handleUpgrade(req, socket, head, (ws) => {
 				signalWss.emit("connection", ws, req);
 			});
@@ -52,8 +51,10 @@ signalWss.on("connection", async (ws, req) => {
 			case "join-room":
 				console.log("JOINING ROOM:", messagedata.roomid);
 
+				//get the room from the signalclients array
 				var room = global.signalClients[messagedata.roomid];
 
+				//create the room if it is undefined, and add the user if it is defined
 				if (typeof room != 'undefined') {
 					room.push({userid: messagedata.userid, socket: ws});
 				} else {
@@ -61,12 +62,17 @@ signalWss.on("connection", async (ws, req) => {
 					var room = global.signalClients[messagedata.roomid];
 				}
 
-				for (var client of room) {
-					if (client.userid != messagedata.userid) {
-						var connected = JSON.stringify({event: "user-connected", userid: messagedata.userid});
-						client.socket.send(connected);
-					}
+				//get all other peers in the room
+				var recipients = room.filter((client) => {
+					return client.userid != messagedata.userid;
+				});
+
+				//notify the other peers of the new user joining the room
+				for (var recipient of recipients) {
+					var connected = JSON.stringify({event: "user-connected", userid: messagedata.userid});
+					recipient.socket.send(connected);
 				}
+
 				break;
 			case "sdp-offer":
 				console.log("SDP OFFER FROM", messagedata.userid);
@@ -74,11 +80,15 @@ signalWss.on("connection", async (ws, req) => {
 				var room = global.signalClients[messagedata.roomid];
 
 				if (typeof room != 'undefined') {
-					for (var client of room) {
-						if (client.userid != messagedata.userid) {
-							var sdpOffer = JSON.stringify({offer: messagedata.offer, event: "sdp-offer", userid: messagedata.userid});
-							client.socket.send(sdpOffer);
-						}
+					//get all other peers in the room
+					var recipients = room.filter((client) => {
+						return client.userid != messagedata.userid;
+					});
+
+					//send the sdp offer to all other peers in the room
+					for (var recipient of recipients) {
+						var sdpOffer = JSON.stringify({offer: messagedata.offer, event: "sdp-offer", userid: messagedata.userid});
+						recipient.socket.send(sdpOffer);
 					}
 				}
 				break;
@@ -88,10 +98,12 @@ signalWss.on("connection", async (ws, req) => {
 				var room = global.signalClients[messagedata.roomid];
 
 				if (typeof room != 'undefined') {
+					//get the recipient for this message
 					var recipients = room.filter((client) => {
 						return client.userid == messagedata.recipient;
 					});
 
+					//send the sdp answer to the recipient
 					var sdpAnswer = JSON.stringify({answer: messagedata.answer, event: "sdp-answer", userid: messagedata.userid});
 					recipients[0].socket.send(sdpAnswer);
 				}
@@ -103,13 +115,14 @@ signalWss.on("connection", async (ws, req) => {
 				var room = global.signalClients[messagedata.roomid];
 
 				if (typeof room != 'undefined') {
+					//get all other peers in the room
 					var recipients = room.filter((client) => {
 						return client.userid != messagedata.userid;
 					});
 
+					//send the ice candidate to all other peers in the room
 					for (var recipient of recipients) {
 						var iceCandidate = JSON.stringify({event: "ice-exchange", candidate: messagedata.candidate, userid: messagedata.userid});
-
 						recipient.socket.send(iceCandidate);
 					}
 				}
@@ -121,12 +134,12 @@ signalWss.on("connection", async (ws, req) => {
 				var room = global.signalClients[messagedata.roomid];
 
 				if (typeof room != 'undefined') {
+					//get the recipient of this answer pong
 					var recipients = room.filter((client) => {
 						return client.userid == messagedata.recipient;
 					});
 
-					console.log(recipients);
-
+					//send the answer pong to the recipient
 					var answerPong = JSON.stringify({event: "answer-pong", userid: messagedata.userid});
 					recipients[0].socket.send(answerPong);
 				}
@@ -138,20 +151,20 @@ signalWss.on("connection", async (ws, req) => {
 				var room = global.signalClients[messagedata.roomid];
 
 				if (typeof room != 'undefined') {
+					//get the user/socket requesting the data
 					var recipients = room.filter((client) => {
 						return client.userid == messagedata.userid;
 					});
 
-					var peers = room.filter((client) => {
+					//get the peer ids currently in the room
+					var peerids = room.map((peer) => {
+						return peer.userid;
+					});
+					peerids = peerids.filter((client) => {
 						return client.userid != messagedata.userid;
 					});
 
-					var peerids = peers.map((peer) => {
-						return peer.userid;
-					});
-
-					console.log(peerids);
-
+					//send peer ids to the user
 					var peersObj = JSON.stringify({event: "get-peers", peers: peerids, userid: messagedata.userid});
 					recipients[0].socket.send(peersObj);
 				}

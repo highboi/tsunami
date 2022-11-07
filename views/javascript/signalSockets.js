@@ -18,7 +18,8 @@ var connections = {};
 var conf = {'iceServers': [{'urls': ['stun:stun.l.google.com:19302']}]};
 
 //a variable to listen for the commready event to start data interaction
-var commlistener = false;
+var commlistener = document.getElementById("eventlistener");
+commlistener.ready = false;
 
 		/*
 		EVENTS FOR THE SIGNALLING WEBSOCKETS
@@ -68,9 +69,13 @@ signalSocket.onmessage = async (event) => {
 			//set the remote description for this connection
 			await connections[data.userid].connection.setRemoteDescription(new RTCSessionDescription(data.offer));
 
-			//make an sdp answer and set it as the local description
-			var answer = await connections[data.userid].connection.createAnswer();
-			await connections[data.userid].connection.setLocalDescription(answer);
+			try {
+				//make an sdp answer and set it as the local description
+				var answer = await connections[data.userid].connection.createAnswer();
+				await connections[data.userid].connection.setLocalDescription(answer);
+			} catch (e) {
+				textLog.innerHTML += JSON.stringify(e);
+			}
 
 			//send the sdp answer to the peer
 			var answerObj = JSON.stringify({recipient: data.userid, userid: userid, answer: answer, event: "sdp-answer", roomid: roomid});
@@ -94,8 +99,6 @@ signalSocket.onmessage = async (event) => {
 
 			//add the ice candidates to this connection
 			await addCandidates(connections[data.userid]);
-
-			console.log(data);
 
 			//send the answer pong to the other side
 			var answerPong = JSON.stringify({event: "answer-pong", userid: userid, roomid: roomid, recipient: data.userid});
@@ -130,9 +133,9 @@ signalSocket.onmessage = async (event) => {
 
 			//fire the commready event
 			connections[data.userid].connection.dispatchEvent(commEvent);
-			if (!commlistener) {
+			if (!commlistener.ready) {
 				commlistener.dispatchEvent(commEvent);
-				commlistener = true;
+				commlistener.ready = true;
 			}
 
 			break;
@@ -225,8 +228,6 @@ async function makeNewConnection(peerid) {
 
 	//wait for the connection to the peer to be established
 	newConnection.connection.oniceconnectionstatechange = (event) => {
-		console.log(event.target.iceConnectionState);
-
 		if (event.target.iceConnectionState == "connected") {
 			//log this event
 			textLog.innerHTML += "***<br>PEERS CONNECTED<br>***<br>";
@@ -239,9 +240,9 @@ async function makeNewConnection(peerid) {
 
 			//fire the commready event
 			event.target.dispatchEvent(commEvent);
-			if (!commlistener) {
+			if (!commlistener.ready) {
 				commlistener.dispatchEvent(commEvent);
-				commlistener = true;
+				commlistener.ready = true;
 			}
 		} else if (event.target.iceConnectionState == "failed") {
 			//log this event
@@ -259,9 +260,9 @@ async function makeNewConnection(peerid) {
 
 			//fire the commready event
 			event.target.dispatchEvent(commEvent);
-			if (!commlistener) {
+			if (!commlistener.ready) {
 				commlistener.dispatchEvent(commEvent);
-				commlistener = true;
+				commlistener.ready = true;
 			}
 		}
 	};
@@ -277,6 +278,8 @@ async function makeNewConnection(peerid) {
 
 	//listen for ice candidates being generated
 	newConnection.connection.onicecandidate = (event) => {
+		textLog.innerHTML += "SENDING ICE CANDIDATE<br>"
+
 		//make an object containing the ice candidate
 		var candidate = JSON.stringify({candidate: event.candidate, userid: userid, roomid: roomid, event: "ice-exchange"});
 
@@ -298,6 +301,7 @@ async function sendOffer(connectionObj) {
 	//make an sdp offer with this peer connection
 	var offer = await connection.createOffer();
 	await connection.setLocalDescription(offer);
+	await connection.setRemoteDescription(offer);
 
 	//store the sdp offer in the connection object
 	connectionObj.sdpOffer = offer;
