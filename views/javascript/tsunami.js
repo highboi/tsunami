@@ -22,6 +22,7 @@ async function tsunami() {
 	//a variable to listen for the commready event to start data interaction
 	var commlistener = document.getElementById("eventlistener");
 	commlistener.ready = false;
+	commlistener.getdata = {};
 
 
 
@@ -176,6 +177,11 @@ async function tsunami() {
 				//store the data requested in local storage
 				storeLocalData(data.key, data.value);
 
+				//fire this event for the getdata function to return data
+				var getResEvent = new Event("relay-get-response");
+				commlistener.getdata[data.key] = data.value;
+				commlistener.dispatchEvent(getResEvent);
+
 				break;
 			case "relay-color":
 				//log this event
@@ -217,6 +223,14 @@ async function tsunami() {
 			case "relay-get-response":
 				//log this event
 				textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(messagedata.value);
+
+				//store the data requested in local storage
+				storeLocalData(data.key, data.value);
+
+				//fire this event for the getdata function to return data
+				var getResEvent = new Event("relay-get-response");
+				commlistener.getdata[data.key] = data.value;
+				commlistener.dispatchEvent(getResEvent);
 
 				break;
 			case "relay-color":
@@ -444,8 +458,12 @@ async function tsunami() {
 			peer.connection.commchannel.send(JSON.stringify(dataObj));
 		}
 
-		//return the sent data for reference
-		return dataObj;
+		//return a promise that resolves when data is returned by a peer
+		return new Promise((resolve, reject) => {
+			commlistener.addEventListener("relay-get-response", (event) => {
+				resolve(event.target.getdata[key]);
+			});
+		});
 	}
 
 	//a function to store data in local storage
@@ -473,6 +491,72 @@ async function tsunami() {
 		} catch (e) {
 			return data;
 		}
+	}
+
+	//a function for torrenting a file with a unique id
+	async function torrentFile(file, id) {
+		//get the raw data from the file
+		var fileBuffer = await file.arrayBuffer();
+		var buffer = new Uint8Array(fileBuffer);
+
+		//divide the file data into fragments and store into an array
+		var fragments = [];
+		for (var byteindex = 0; byteindex < buffer.length; byteindex += 100) {
+			//make a fragment object with the position, data, and associated url to be put into the fragments array
+			var fragment = buffer.slice(byteindex, byteindex+100);
+			fragments.push(fragment);
+		}
+
+		//get the order of each fragment for later reassembly
+		var positions = [];
+		for (var frag in fragments) {
+			//store the fragment on the network
+			var fragment_key = frag + "_" + id;
+			await putData(fragment_key, fragments[frag]);
+
+			//add this fragment key to the positions array
+			positions.push(fragment_key);
+		}
+
+		//make a fragment ledger to store all fragment keys/ids
+		var ledger_key = id + "_ledger";
+		await putData(ledger_key, {positions: positions, filetype: filetype});
+
+		return true;
+	}
+
+	//a function for downloading a torrent from the network with a unique id
+	async function downloadTorrent(id) {
+		//get the ledger for all the file fragments
+		var ledger_key = id + "_ledger";
+		var ledger = await getData(ledger_key);
+
+		//get file fragments from the network
+		var fragments = [];
+		for (var position of ledger.positions) {
+			var fragment = await getData(position);
+			fragments.push(fragment);
+		}
+
+		//turn fragments into bytes of raw data
+		var bytes = [];
+		for (var fragment of fragments) {
+			for (var byte of Object.values(fragment)) {
+				bytes.push(byte);
+			}
+		}
+
+		//convert the byte array into a blob
+		var buffer = Uint8Array.from(bytes);
+		var blob = new Blob([buffer], {
+			type: ledger.filetype
+		});
+
+		//make a blob url
+		var fileurl = URL.createObjectURL(blob);
+
+		//return the url for use on the webpage
+		return fileurl;
 	}
 
 	//listen for the commready event to start interacting with data
