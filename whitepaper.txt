@@ -1,0 +1,110 @@
+The Tsunami Browser Network Protocol:
+
+			Introduction:
+The power and scalability of p2p (peer-to-peer) networks is untapped and mostly unused in modern-day technologies. This is mainly because of the current paradigm, which is essentially
+that a server or central authority is somehow the only way to make a technological service or product. With the growth of Web3 happening with no one noticing the potential, now is
+the prime time to start pushing for the new paradigm: that of establishing NETWORKS, not servers or authorities. Tsunami aims to empower this paradigm shift by allowing for the
+conventional capabilities of p2p networks to be accessible across all platforms and on all web services by utilizing the browser instead of low-level software such as napster and
+limewire. If the capabilities of p2p are accessible everywhere, a new golden age of technology can flourish.
+
+			The Basics:
+The main components that make the Tsunami network function are as follows:
+	- Peer Relay
+	- The Cacti Algorithm
+	- Beacons
+	- Data Torrenting
+
+These components of Tsunami are what enable for the following capabilities to be accessed by all devices:
+	- Primitive Data storage
+	- File storage
+	- Dynamic/Templated content rendering
+	- Offline functionality
+	- Low-latency
+	- Low-cost scalability
+
+Tsunami Components Described:
+
+1. Peer Relay
+	The key to how Tsunami can scale better than other p2p networks is the unique structuring of peers on the network. To limit the amount of connections, the user has direct
+connections to 6 other peers on the network. This is the user's "direct sphere of influence". If a user wants to get data that goes beyond their sphere of influence, then the peer
+can request data with a number called the "echo" number, which describes how many layers outside of the user's direct sphere of influence they want to get data from. For example,
+if a user wants to get data, they may send a request with an echo number of 0, which means they only get data from their direct sphere of influence. If the user wants more data
+or if the echo number is not high enough, then they may send a request with an echo number of 2, in which case the request is sent to each peer in the direct sphere of influence as
+well as the peers that THOSE peers are connected to. Here are some images that may help.
+
+[[]] - Primary Peer
+[**] - Secondary Peer
+
+Echo Number: 0
+Data request is sent to primary peers
+
+         [[]]
+          ||
+          ||
+[[]] --- [[]] --- [[]]
+          ||
+          ||
+         [[]]
+
+Echo Number: 1
+Data request is sent to primary and secondary peers
+
+     [**]    [**]
+       \      /
+        \    /
+[**]     [[]]     [**]
+ ||       ||       ||
+ ||       ||       ||
+[[]] --- [[]] --- [[]]
+ ||       ||       ||
+ ||       ||       ||
+[**]     [[]]     [**]
+        /    \
+       /      \
+     [**]    [**]
+
+In this way, the network can limit the amount of connections and scale with less problems while simultaneously allowing access to the entire network. However, being able to access
+the data you WANT on the network is another issue. This problem is solved with the Cacti Algorithm.
+
+2. The Cacti Algorithm
+	The Cacti Algorithm is an algorithm that allows peers on the network to strengthen/maintain connections with useful peers whilst severing ties with unused peer connections.
+The algorithm is named for the similar behavior of cactus roots, which grow in the presence of water and "die back" when there is a lack of water. The algorithm works on the theory
+of the six degrees of separation, which is a theory that every person is only 6 people away from any other person on the planet. Based on this theory, the same can be said for
+computers on a network. Any computer on the network is only a few degrees of separation away from any other computer, and therefore all data that a user could want can be accessed
+using this basic premise. The Cacti Algorithm works as follows: If the amount of interactions with a secondary peer (described in section 1) outranks the amount of interactions
+with a primary peer by a factor of 1.1 or more for the past 100 interactions (calculate the ratio of interactions), then the connection to that outranked primary peer is severed and
+the outranking secondary peer becomes the replacement primary peer. This basic algorithm allows for an ever-changing sphere of influence and web of data based on the needs of the
+user, all without the need for complex data systems or algorithms to facilitate this custom experience for each user on the network.
+
+3. Beacons
+	Beacons in Tsunami are essentially the signalling/relay servers that allow peers to connect to the network. Peers attempt to make a direct connection to other peers using WebRTC,
+but if this does not work, then the beacons are there to act as relay servers to introduce reliability to the network. These are the different kinds of messages (at the time of writing)
+that are currently transmitted through beacons:
+
+A. Signalling Messages:
+	- sdp-offer
+		The sdp-offer message sends an SDP (Session Description Protocol) Offer to a peer on the network.
+	- sdp-answer
+		The sdp-answer message responds to an SDP Offer with an SDP Answer to a peer on the network.
+	- ice-exchange
+		The ice-exchange message is a message/broadcast of an ice candidate to other peers on the network.
+	- answer-pong
+		The answer-pong message responds to an SDP Answer to let the other peer know that their connection is ready for ICE candidates.
+	- get-peers
+		The get-peers message is a request for a new "sphere of influence", meaning that 6 random peers are selected.
+	- webrtc-failed
+		The webrtc-failed message is there to let another peer know when the WebRTC connection fails on one end in order to properly default to HTTP relay.
+	
+B. Relay Messages:
+	- relay-put
+		The relay-put message is a broadcast to peers that sets a key-value pair in each peer's local browser storage.
+	- relay-get
+		The relay-get message is a broadcasted request for a key-value pair from each peer's local browser storage. This request has an echo number to prevent infinite requests.
+	- relay-get-response
+		The relay-get-response is a response to a relay-get message, containing the requested key-value pair or a NULL value to signify a lack of data on the network
+
+4. Data Torrenting:
+	Data on the Tsunami network is distributed among peers. As described previously, the "sphere of influence" of a peer is where data is stored on the network. The echo
+number can be used to describe how distributed the data should be, and across how many peers. Data is not stored on the ENTIRE network, but rather a PORTION of the network
+that can be accessed with the peer relay described previously. This allows for all data to be accessible with no need for all computers to store the complete set of data. Only
+the data that is relevant or needed is stored and used by peers of the network.
