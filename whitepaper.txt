@@ -29,8 +29,8 @@ Tsunami Components Described:
 connections to 6 other peers on the network. This is the user's "direct sphere of influence". If a user wants to get data that goes beyond their sphere of influence, then the peer
 can request data with a number called the "echo" number, which describes how many layers outside of the user's direct sphere of influence they want to get data from. For example,
 if a user wants to get data, they may send a request with an echo number of 0, which means they only get data from their direct sphere of influence. If the user wants more data
-or if the echo number is not high enough, then they may send a request with an echo number of 2, in which case the request is sent to each peer in the direct sphere of influence as
-well as the peers that THOSE peers are connected to. Here are some images that may help.
+or if the echo number is not high enough, then they may send a request with an echo number of 1, in which case the request is sent to each peer in the direct sphere of influence as
+well as the peers that THOSE peers are connected to (the data request is "echoed" one time). Here are some images that may help.
 
 [[]] - Primary Peer
 [**] - Secondary Peer
