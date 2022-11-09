@@ -16,7 +16,10 @@ async function tsunami() {
 	//connect to the signalling server
 	var signalSocket = new WebSocket(`ws://${window.location.hostname}:3000/signal`);
 
-	//an array to define peer connections for webrtc
+	//an array of the peer ids connected to the user
+	var peerids = [];
+
+	//an object to define peer connections for webrtc
 	var connections = {};
 
 	//a variable to listen for the commready event to start data interaction
@@ -36,11 +39,11 @@ async function tsunami() {
 	//function executes when the socket opens
 	signalSocket.onopen = async (event) => {
 		//send the current room id and user id to the server
-		var data = JSON.stringify({roomid: roomid, userid: userid, event: "join-room"});
+		var data = JSON.stringify({userid: userid, event: "join-net"});
 		signalSocket.send(data);
 
 		//get the amount of peers needed to connect to
-		var getPeers = JSON.stringify({event: "get-peers", userid: userid, roomid: roomid});
+		var getPeers = JSON.stringify({event: "get-peers", userid: userid});
 		signalSocket.send(getPeers);
 	};
 
@@ -58,6 +61,9 @@ async function tsunami() {
 			case "get-peers": //make new connections for each peer
 				//log this event
 				textLog.innerHTML += "GETTING PEERS<br>";
+
+				//add the array of connected peers to the connections object
+				peerids = data.peers;
 
 				//make a new connection for each peer currently on the network
 				for (var peer of data.peers) {
@@ -86,7 +92,7 @@ async function tsunami() {
 				}
 
 				//send the sdp answer to the peer
-				var answerObj = JSON.stringify({recipient: data.userid, userid: userid, answer: answer, event: "sdp-answer", roomid: roomid});
+				var answerObj = JSON.stringify({recipient: data.userid, userid: userid, answer: answer, event: "sdp-answer"});
 				signalSocket.send(answerObj);
 
 				break;
@@ -109,7 +115,7 @@ async function tsunami() {
 				await addCandidates(connections[data.userid]);
 
 				//send the answer pong to the other side
-				var answerPong = JSON.stringify({event: "answer-pong", userid: userid, roomid: roomid, recipient: data.userid});
+				var answerPong = JSON.stringify({event: "answer-pong", userid: userid, recipient: data.userid});
 				signalSocket.send(answerPong);
 
 				break;
@@ -156,7 +162,7 @@ async function tsunami() {
 
 				//send the data if it is not a null value
 				if (value != null) {
-					var valueObj = JSON.stringify({userid: userid, roomid: roomid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
+					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
 					connections[data.userid].connection.commchannel.send(valueObj);
 				}
 
@@ -207,7 +213,7 @@ async function tsunami() {
 
 				//send the data if it is not a null value
 				if (value != null) {
-					var valueObj = JSON.stringify({userid: userid, roomid: roomid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
+					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
 					connections[data.userid].connection.commchannel.send(valueObj);
 				}
 
@@ -222,7 +228,7 @@ async function tsunami() {
 				break;
 			case "relay-get-response":
 				//log this event
-				textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(messagedata.value);
+				textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(data.value);
 
 				//store the data requested in local storage
 				storeLocalData(data.key, data.value);
@@ -294,7 +300,7 @@ async function tsunami() {
 				textLog.innerHTML += "***<br>PEERS FAILED TO CONNECT, DEFAULTING TO HTTP RELAY<br>***<br>";
 
 				//notify the peer that the connection failed
-				var failedObj = JSON.stringify({event: "webrtc-failed", roomid: roomid, userid: userid, recipient: event.target.peerid});
+				var failedObj = JSON.stringify({event: "webrtc-failed", userid: userid, recipient: event.target.peerid});
 				signalSocket.send(failedObj);
 
 				//set the signal socket as the communication channel instead of the webrtc channel
@@ -326,7 +332,7 @@ async function tsunami() {
 			textLog.innerHTML += "SENDING ICE CANDIDATE<br>"
 
 			//make an object containing the ice candidate
-			var candidate = JSON.stringify({candidate: event.candidate, userid: userid, roomid: roomid, event: "ice-exchange"});
+			var candidate = JSON.stringify({candidate: event.candidate, userid: userid, event: "ice-exchange", peers: peerids});
 
 			//send the ice candidate to the server
 			signalSocket.send(candidate);
@@ -352,7 +358,7 @@ async function tsunami() {
 		connectionObj.sdpOffer = offer;
 
 		//package the sdp offer and room id into an object and send to the signalling server
-		var sdpObject = JSON.stringify({offer: offer, roomid: roomid, event: "sdp-offer", userid: userid});
+		var sdpObject = JSON.stringify({offer: offer, event: "sdp-offer", userid: userid, peers: peerids});
 		signalSocket.send(sdpObject);
 	}
 
@@ -401,7 +407,7 @@ async function tsunami() {
 			return peer.connection.ready;
 		});
 
-		var dataObj = {event: "relay-color", value: data, roomid: roomid, userid: userid};
+		var dataObj = {event: "relay-color", value: data, userid: userid, peers: peerids};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
@@ -422,7 +428,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, value: data, userid: userid, roomid: roomid, event: "relay-put"};
+		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
@@ -449,7 +455,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, userid: userid, roomid: roomid, event: "relay-get"};
+		var dataObj = {key: key, userid: userid, event: "relay-get", peers: peerids};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {

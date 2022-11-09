@@ -15,14 +15,9 @@ var url = require("url");
 app.set("view engine", "ejs");
 app.use(express.static("views"));
 
-//a get path for making a room
+//a get path for connecting to the network
 app.get("/", async (req, res) => {
-	return res.redirect(`/${uuidV4()}`);
-});
-
-//a get path for a room
-app.get("/:roomid", async (req, res) => {
-	return res.render("room.ejs", {roomid: req.params.roomid});
+	return res.render("room.ejs");
 });
 
 //handle server upgrades to websockets
@@ -48,201 +43,145 @@ signalWss.on("connection", async (ws, req) => {
 		var messagedata = JSON.parse(message);
 
 		switch (messagedata.event) {
-			case "join-room":
-				console.log("JOINING ROOM:", messagedata.roomid);
+			case "join-net":
+				console.log("JOINING NETWORK");
 
-				//get the room from the signalclients array
-				var room = global.signalClients[messagedata.roomid];
+				//get the room from the signal clients array
+				var room = global.signalClients;
 
-				//create the room if it is undefined, and add the user if it is defined
-				if (typeof room != 'undefined') {
-					room.push({userid: messagedata.userid, socket: ws});
-				} else {
-					global.signalClients[messagedata.roomid] = [{userid: messagedata.userid, socket: ws}];
-					var room = global.signalClients[messagedata.roomid];
+				//add this client to the network
+				room[messagedata.userid] = {userid: messagedata.userid, socket: ws};
+
+				break;
+			case "get-peers":
+				console.log("USER REQUESTING PEERS");
+
+				var room = [];
+
+				var peerlength = Object.values(global.signalClients).length;
+
+				//pick 6 random peers to add to the array
+				for (var i = 0; i < 6; i++) {
+					//pick a random peer in the signal clients
+					var randompeer = Object.values(global.signalClients)[Math.round(Math.random()*(peerlength-1))];
+					room.push(randompeer);
 				}
 
-				//get all other peers in the room
-				var recipients = room.filter((client) => {
+				console.log(room);
+
+				//make sure the peers are different than the original user
+				room = room.filter((client) => {
 					return client.userid != messagedata.userid;
 				});
 
-				//notify the other peers of the new user joining the room
-				for (var recipient of recipients) {
-					var connected = JSON.stringify({event: "user-connected", userid: messagedata.userid});
-					recipient.socket.send(connected);
-				}
+				//get the peer ids currently in the room
+				var peerids = room.map((peer) => {
+					return peer.userid;
+				});
+				peerids = peerids.filter((client) => {
+					return client.userid != messagedata.userid;
+				});
+
+				//send peer ids to the user
+				var peersObj = JSON.stringify({event: "get-peers", peers: peerids, userid: messagedata.userid});
+
+				console.log(room);
+				console.log(messagedata.userid);
+
+				global.signalClients[messagedata.userid].socket.send(peersObj);
 
 				break;
 			case "sdp-offer":
 				console.log("SDP OFFER FROM", messagedata.userid);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					//get all other peers in the room
-					var recipients = room.filter((client) => {
-						return client.userid != messagedata.userid;
-					});
+				//send the sdp offer to all the direct peers of the user
+				var sdpOffer = JSON.stringify({offer: messagedata.offer, event: "sdp-offer", userid: messagedata.userid});
 
-					//send the sdp offer to all other peers in the room
-					for (var recipient of recipients) {
-						var sdpOffer = JSON.stringify({offer: messagedata.offer, event: "sdp-offer", userid: messagedata.userid});
-						recipient.socket.send(sdpOffer);
-					}
+				console.log(messagedata.peers);
+
+				for (var peer of messagedata.peers) {
+					room[peer].socket.send(sdpOffer);
 				}
+
 				break;
 			case "sdp-answer":
 				console.log("SDP ANSWER FROM", messagedata.userid);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					//get the recipient for this message
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					//send the sdp answer to the recipient
-					var sdpAnswer = JSON.stringify({answer: messagedata.answer, event: "sdp-answer", userid: messagedata.userid});
-					recipients[0].socket.send(sdpAnswer);
-				}
+				//send the sdp answer to the recipient
+				var sdpAnswer = JSON.stringify({answer: messagedata.answer, event: "sdp-answer", userid: messagedata.userid});
+				room[messagedata.userid].socket.send(sdpAnswer);
 
 				break;
 			case "ice-exchange":
 				console.log("ICE CANDIDATE FROM", messagedata.userid);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					//get all other peers in the room
-					var recipients = room.filter((client) => {
-						return client.userid != messagedata.userid;
-					});
-
-					//send the ice candidate to all other peers in the room
-					for (var recipient of recipients) {
-						var iceCandidate = JSON.stringify({event: "ice-exchange", candidate: messagedata.candidate, userid: messagedata.userid});
-						recipient.socket.send(iceCandidate);
-					}
+				//send the ice candidate to all direct peers
+				var iceCandidate = JSON.stringify({event: "ice-exchange", candidate: messagedata.candidate, userid: messagedata.userid});
+				for (var peer of messagedata.peers) {
+					room[peer].socket.send(iceCandidate);
 				}
 
 				break;
 			case "answer-pong":
 				console.log("ANSWER PONG FROM", messagedata.userid);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					//get the recipient of this answer pong
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					//send the answer pong to the recipient
-					var answerPong = JSON.stringify({event: "answer-pong", userid: messagedata.userid});
-					recipients[0].socket.send(answerPong);
-				}
-
-				break;
-			case "get-peers":
-				console.log("USER REQUESTING PEERS");
-
-				var room = global.signalClients[messagedata.roomid];
-
-				if (typeof room != 'undefined') {
-					//get the user/socket requesting the data
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.userid;
-					});
-
-					//get the peer ids currently in the room
-					var peerids = room.map((peer) => {
-						return peer.userid;
-					});
-					peerids = peerids.filter((client) => {
-						return client.userid != messagedata.userid;
-					});
-
-					//send peer ids to the user
-					var peersObj = JSON.stringify({event: "get-peers", peers: peerids, userid: messagedata.userid});
-					recipients[0].socket.send(peersObj);
-				}
+				//send the answer pong to the recipient
+				var answerPong = JSON.stringify({event: "answer-pong", userid: messagedata.userid});
+				room[messagedata.recipient].socket.send(answerPong);
 
 				break;
 			case "webrtc-failed":
 				console.log("WEBRTC CONNECTION FAILED FOR", messagedata.userid, "SENDING MESSAGE TO", messagedata.recipient);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					var failedObj = JSON.stringify({event: "webrtc-failed", userid: messagedata.userid});
-					recipients[0].socket.send(failedObj);
-				}
+				var failedObj = JSON.stringify({event: "webrtc-failed", userid: messagedata.userid});
+				room[messagedata.recipient].socket.send(failedObj);
 
 				break;
 			case "relay-put":
 				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key});
-					recipients[0].socket.send(messageObj);
-				}
+				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key});
+				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
 			case "relay-get":
 				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
+				var messageObj = JSON.stringify({event: "relay-get", userid: messagedata.userid, key: messagedata.key});
+				room[messagedata.recipient].socket.send(messageObj);
 
-					var messageObj = JSON.stringify({event: "relay-get", userid: messagedata.userid, key: messagedata.key});
-					recipients[0].socket.send(messageObj);
-				}
 
 				break;
 			case "relay-get-response":
 				console.log("PEER", messagedata.userid, "RESPONDING WITH DATA", messagedata.value);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					var messageObj = JSON.stringify({event: "relay-get-response", userid: messagedata.userid, value: messagedata.value});
-					recipients[0].socket.send(messageObj);
-				}
+				var messageObj = JSON.stringify({event: "relay-get-response", userid: messagedata.userid, value: messagedata.value});
+				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
 			case "relay-color":
 				console.log("PEER", messagedata.userid, "TRANSMITTING DATA", messagedata.value);
 
-				var room = global.signalClients[messagedata.roomid];
+				var room = global.signalClients;
 
-				if (typeof room != 'undefined') {
-					var recipients = room.filter((client) => {
-						return client.userid == messagedata.recipient;
-					});
-
-					var messageObj = JSON.stringify({event: "relay-color", userid: messagedata.userid, value: messagedata.value});
-					recipients[0].socket.send(messageObj);
-				}
+				var messageObj = JSON.stringify({event: "relay-color", userid: messagedata.userid, value: messagedata.value});
+				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
 		}
