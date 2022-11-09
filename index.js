@@ -152,7 +152,7 @@ signalWss.on("connection", async (ws, req) => {
 
 				var room = global.signalClients;
 
-				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key});
+				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key, echo: messagedata.echo});
 				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
@@ -161,9 +161,8 @@ signalWss.on("connection", async (ws, req) => {
 
 				var room = global.signalClients;
 
-				var messageObj = JSON.stringify({event: "relay-get", userid: messagedata.userid, key: messagedata.key});
+				var messageObj = JSON.stringify({event: "relay-get", userid: messagedata.userid, key: messagedata.key, echo: messagedata.echo, batonholders: messagedata.batonholders});
 				room[messagedata.recipient].socket.send(messageObj);
-
 
 				break;
 			case "relay-get-response":
@@ -171,7 +170,7 @@ signalWss.on("connection", async (ws, req) => {
 
 				var room = global.signalClients;
 
-				var messageObj = JSON.stringify({event: "relay-get-response", userid: messagedata.userid, value: messagedata.value});
+				var messageObj = JSON.stringify({event: "relay-get-response", userid: messagedata.userid, value: messagedata.value, batonholders: messagedata.batonholders});
 				room[messagedata.recipient].socket.send(messageObj);
 
 				break;

@@ -160,10 +160,29 @@ async function tsunami() {
 				//get the data from local storage
 				var value = getLocalData(data.key);
 
-				//send the data if it is not a null value
-				if (value != null) {
+				//send the data if it is not a null value or the echo limit is reached
+				if (value != null || data.batonholders.length == data.echo) {
+					//make a get response
 					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
-					connections[data.userid].connection.commchannel.send(valueObj);
+
+					//check to see if there is a previous chain of baton holders
+					if (data.batonholders.length) {
+						//send the data to the last baton holder before us so they can relay it until the recipient is reached
+						connections[data.batonholders[data.batonholders.length-1]].connection.commchannel.send(valueObj);
+					} else {
+						//if there are no baton holders besides us send the data directly to the user who requested the data
+						connections[data.userid].connection.commchannel.send(valueObj);
+					}
+				} else { //if the data is not found and the echo limit has not been hit, then relay the request for data to other peers
+					//add the current userid to the baton holders array
+					data.batonholders.push(userid);
+
+					//relay the request for data to other peers
+					var dataObj = {key: key, userid: data.userid, event: "relay-get", echo: echo, batonholders: data.batonholders};
+					for (var peer of peerids) {
+						dataObj.recipient = peer;
+						connections[peer].connection.commchannel.send(JSON.stringify(dataObj));
+					}
 				}
 
 				break;
@@ -174,19 +193,30 @@ async function tsunami() {
 				//store the data in local storage
 				storeLocalData(data.key, data.value);
 
+				//relay this put request to other peers depending on the echo number
+
 				break;
 
 			case "relay-get-response":
 				//log this event
 				textLog.innerHTML += "PEER " + data.userid.toString() + " RESPONDED TO GET WITH DATA: " + JSON.stringify(data.value) + "<br>";
 
-				//store the data requested in local storage
-				storeLocalData(data.key, data.value);
+				//remove the last baton holder from the array (our user id)
+				data.batonholders.pop();
 
-				//fire this event for the getdata function to return data
-				var getResEvent = new Event("relay-get-response");
-				commlistener.getdata[data.key] = data.value;
-				commlistener.dispatchEvent(getResEvent);
+				//check to see if this get response is for us
+				if (userid == data.recipient) {
+					//store the data requested in local storage
+					storeLocalData(data.key, data.value);
+
+					//fire this event for the getdata function to return data
+					var getResEvent = new Event("relay-get-response");
+					commlistener.getdata[data.key] = data.value;
+					commlistener.dispatchEvent(getResEvent);
+				} else {
+					//relay the get response to the next peer in the baton holder chain
+					connections[data.batonholders[data.batonholders-1]].connection.commchannel.send(JSON.stringify(data));
+				}
 
 				break;
 			case "relay-color":
@@ -206,37 +236,77 @@ async function tsunami() {
 		switch (data.event) {
 			case "relay-get":
 				//log this event
-				textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString();
+				textLog.innerHTML += "PEER " + data.userid.toString() + " IS REQUESTING DATA WITH KEY " + data.key.toString() + "<br>";
 
 				//get the data from local storage
 				var value = getLocalData(data.key);
 
-				//send the data if it is not a null value
-				if (value != null) {
-					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
-					connections[data.userid].connection.commchannel.send(valueObj);
+				//send the data if it is not a null value or the echo limit is reached
+				if (value != null || data.batonholders.length == data.echo) {
+					//make a get response
+					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid, batonholders: data.batonholders});
+
+					//check to see if there is a previous chain of baton holders
+					if (data.batonholders.length) {
+						//send the data to the last baton holder before us so they can relay it until the recipient is reached
+						connections[data.batonholders[data.batonholders.length-1]].connection.commchannel.send(valueObj);
+					} else {
+						//if there are no baton holders besides us send the data directly to the user who requested the data
+						connections[data.userid].connection.commchannel.send(valueObj);
+					}
+				} else { //if the data is not found and the echo limit has not been hit, then relay the request for data to other peers
+					//add the current userid to the baton holders array
+					data.batonholders.push(userid);
+
+					//relay the request for data to other peers
+					var dataObj = {key: key, userid: data.userid, event: "relay-get", echo: echo, batonholders: data.batonholders};
+					for (var peer of peerids) {
+						dataObj.recipient = peer;
+						connections[peer].connection.commchannel.send(JSON.stringify(dataObj));
+					}
 				}
 
 				break;
 			case "relay-put":
 				//log this event
-				textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value);
+				textLog.innerHTML += "PEER " + data.userid.toString() + " IS SETTING A KEY-VALUE PAIR: " + data.key.toString() + ":"  + JSON.stringify(data.value) + "<br>";
 
 				//store the data in local storage
 				storeLocalData(data.key, data.value);
 
+				//add our user id to the batonholders array
+				data.batonholders.push(userid);
+
+				//if the echo limit for the put request has not been reached
+				if (data.batonholders.length < data.echo) {
+					//send this put request to surrounding peers
+					for (var peer of peerids) {
+						connections[peer].connection.commchannel.send(JSON.stringify(data));
+					}
+				}
+
 				break;
+
 			case "relay-get-response":
 				//log this event
-				textLog.innerHTML += "PEER " + data.userid.toString + " RESPONDED TO GET WITH DATA: " + JSON.stringify(data.value);
+				textLog.innerHTML += "PEER " + data.userid.toString() + " RESPONDED TO GET WITH DATA: " + JSON.stringify(data.value) + "<br>";
 
-				//store the data requested in local storage
-				storeLocalData(data.key, data.value);
+				//remove the last baton holder from the array (our user id)
+				data.batonholders.pop();
 
-				//fire this event for the getdata function to return data
-				var getResEvent = new Event("relay-get-response");
-				commlistener.getdata[data.key] = data.value;
-				commlistener.dispatchEvent(getResEvent);
+				//check to see if this get response is for us
+				if (userid == data.recipient) {
+					//store the data requested in local storage
+					storeLocalData(data.key, data.value);
+
+					//fire this event for the getdata function to return data
+					var getResEvent = new Event("relay-get-response");
+					commlistener.getdata[data.key] = data.value;
+					commlistener.dispatchEvent(getResEvent);
+				} else {
+					//relay the get response to the next peer in the baton holder chain
+					connections[data.batonholders[data.batonholders-1]].connection.commchannel.send(JSON.stringify(data));
+				}
 
 				break;
 			case "relay-color":
@@ -428,7 +498,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids, echo: echo};
+		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids, echo: echo, batonholders: []};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
@@ -455,7 +525,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, userid: userid, event: "relay-get", peers: peerids, echo: echo};
+		var dataObj = {key: key, userid: userid, event: "relay-get", echo: echo, batonholders: []};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
