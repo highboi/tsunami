@@ -418,7 +418,7 @@ async function tsunami() {
 	}
 
 	//a function for broadcasting a key-value pair to all peers for syncing
-	async function putData(key, data) {
+	async function putData(key, data, echo=2) {
 		//store this data locally first for efficiency
 		localStorage.setItem(key, JSON.stringify(data));
 
@@ -428,7 +428,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids};
+		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids, echo: echo};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
@@ -442,7 +442,7 @@ async function tsunami() {
 	}
 
 	//a function for broadcasting a get message to get data from peers if available
-	async function getData(key) {
+	async function getData(key, echo=2) {
 		//get local data first before requesting peers
 		var localdata = getLocalData(key);
 		if (localdata != null) {
@@ -455,7 +455,7 @@ async function tsunami() {
 		});
 
 		//the data object to send to all peers
-		var dataObj = {key: key, userid: userid, event: "relay-get", peers: peerids};
+		var dataObj = {key: key, userid: userid, event: "relay-get", peers: peerids, echo: echo};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
