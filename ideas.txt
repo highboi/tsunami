@@ -1,0 +1,6 @@
+Startup Ideas for Tsunami:
+- P2P cloud storage with a premium teir for large file uploads (to fund beacons/relay servers)
+- P2P content creation
+- Random P2P group chat/video calling
+- Multiplayer games that scale automatically
+- P2P cloud computing/hosting with payment tiers for storage/computing power

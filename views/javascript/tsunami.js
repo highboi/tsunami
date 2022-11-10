@@ -163,7 +163,7 @@ async function tsunami() {
 				//send the data if it is not a null value or the echo limit is reached
 				if (value != null || data.batonholders.length == data.echo) {
 					//make a get response
-					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid});
+					var valueObj = JSON.stringify({userid: userid, event: "relay-get-response", key: data.key, value: value, recipient: data.userid, batonholders: data.batonholders});
 
 					//check to see if there is a previous chain of baton holders
 					if (data.batonholders.length) {
@@ -179,6 +179,11 @@ async function tsunami() {
 
 					//relay the request for data to other peers
 					var dataObj = {key: key, userid: data.userid, event: "relay-get", echo: echo, batonholders: data.batonholders};
+
+					//get the peers that were not previous baton holders
+					var peers = peerids.filter((peerid) => {
+						return !data.batonholders.includes(peerid);
+					});
 					for (var peer of peerids) {
 						dataObj.recipient = peer;
 						connections[peer].connection.commchannel.send(JSON.stringify(dataObj));
@@ -193,7 +198,20 @@ async function tsunami() {
 				//store the data in local storage
 				storeLocalData(data.key, data.value);
 
-				//relay this put request to other peers depending on the echo number
+				//add our user id to the batonholders array
+				data.batonholders.push(userid);
+
+				//if the echo limit for the put request has not been reached
+				if (data.batonholders.length < data.echo) {
+					var peers = peerids.filter((peerid) => {
+						return !data.batonholder.includes(peerid);
+					});
+
+					//send this put request to surrounding peers
+					for (var peer of peers) {
+						connections[peer].connection.commchannel.send(JSON.stringify(data));
+					}
+				}
 
 				break;
 
@@ -260,6 +278,11 @@ async function tsunami() {
 
 					//relay the request for data to other peers
 					var dataObj = {key: key, userid: data.userid, event: "relay-get", echo: echo, batonholders: data.batonholders};
+
+					//get the peers that were not previous baton holders
+					var peers = peerids.filter((peerid) => {
+						return !data.batonholders.includes(peerid);
+					});
 					for (var peer of peerids) {
 						dataObj.recipient = peer;
 						connections[peer].connection.commchannel.send(JSON.stringify(dataObj));
@@ -279,8 +302,12 @@ async function tsunami() {
 
 				//if the echo limit for the put request has not been reached
 				if (data.batonholders.length < data.echo) {
+					var peers = peerids.filter((peerid) => {
+						return !data.batonholder.includes(peerid);
+					});
+
 					//send this put request to surrounding peers
-					for (var peer of peerids) {
+					for (var peer of peers) {
 						connections[peer].connection.commchannel.send(JSON.stringify(data));
 					}
 				}
