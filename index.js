@@ -152,7 +152,7 @@ signalWss.on("connection", async (ws, req) => {
 
 				var room = global.signalClients;
 
-				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key, echo: messagedata.echo});
+				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key, echo: messagedata.echo, batonholders: messagedata.batonholders});
 				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
