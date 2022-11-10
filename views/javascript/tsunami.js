@@ -61,6 +61,7 @@ async function tsunami() {
 			case "get-peers": //make new connections for each peer
 				//log this event
 				textLog.innerHTML += "GETTING PEERS<br>";
+				textLog.innerHTML += JSON.stringify(data.peers) + "<br>";
 
 				//add the array of connected peers to the connections object
 				peerids = data.peers;
@@ -204,7 +205,7 @@ async function tsunami() {
 				//if the echo limit for the put request has not been reached
 				if (data.batonholders.length < data.echo) {
 					var peers = peerids.filter((peerid) => {
-						return !data.batonholder.includes(peerid);
+						return !data.batonholders.includes(peerid);
 					});
 
 					//send this put request to surrounding peers
@@ -303,7 +304,7 @@ async function tsunami() {
 				//if the echo limit for the put request has not been reached
 				if (data.batonholders.length < data.echo) {
 					var peers = peerids.filter((peerid) => {
-						return !data.batonholder.includes(peerid);
+						return !data.batonholders.includes(peerid);
 					});
 
 					//send this put request to surrounding peers
@@ -524,13 +525,20 @@ async function tsunami() {
 			return peer.connection.ready;
 		});
 
+		console.log(peers);
+
 		//the data object to send to all peers
 		var dataObj = {key: key, value: data, userid: userid, event: "relay-put", peers: peerids, echo: echo, batonholders: []};
 
 		//send data to all peers ready to recieve data
 		for (var peer of peers) {
+			console.log(peer.connection.peerid);
+
 			//set the recipient for this message and send it on the comm channel
 			dataObj.recipient = peer.connection.peerid;
+
+			console.log(dataObj);
+
 			peer.connection.commchannel.send(JSON.stringify(dataObj));
 		}
 
@@ -623,7 +631,7 @@ async function tsunami() {
 
 		//make a fragment ledger to store all fragment keys/ids
 		var ledger_key = id + "_ledger";
-		await putData(ledger_key, {positions: positions, filetype: filetype});
+		await putData(ledger_key, {positions: positions, filetype: file.type});
 
 		return true;
 	}
@@ -666,7 +674,17 @@ async function tsunami() {
 	commlistener.addEventListener("commready", (event) => {
 		alert("DATA INTERACTION IS READY");
 
+		//set primitive data on the network
 		putData("KEYEXAMPLE", {example: "data"});
+
+		//listen for file inputs
+		document.getElementById("file").oninput = async (event) => {
+			//upload a file to the network
+			await torrentFile(event.target.files[0], "examplefile");
+
+			//download the torrent from the network
+			document.getElementById("torrentimg").src = await downloadTorrent("examplefile");
+		}
 
 		//generate a random color and send it to the other user
 		document.getElementById("random-color").addEventListener("click", async (event) => {

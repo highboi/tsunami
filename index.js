@@ -67,8 +67,6 @@ signalWss.on("connection", async (ws, req) => {
 					room.push(randompeer);
 				}
 
-				console.log(room);
-
 				//make sure the peers are different than the original user
 				room = room.filter((client) => {
 					return client.userid != messagedata.userid;
@@ -78,15 +76,14 @@ signalWss.on("connection", async (ws, req) => {
 				var peerids = room.map((peer) => {
 					return peer.userid;
 				});
-				peerids = peerids.filter((client) => {
-					return client.userid != messagedata.userid;
-				});
+
+				//make sure there are no duplicates
+				peerids = [...new Set(peerids)];
+
+				console.log(peerids);
 
 				//send peer ids to the user
 				var peersObj = JSON.stringify({event: "get-peers", peers: peerids, userid: messagedata.userid});
-
-				console.log(room);
-				console.log(messagedata.userid);
 
 				global.signalClients[messagedata.userid].socket.send(peersObj);
 
@@ -148,16 +145,18 @@ signalWss.on("connection", async (ws, req) => {
 
 				break;
 			case "relay-put":
+				console.log(messagedata);
+
 				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
 
 				var room = global.signalClients;
 
-				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key, echo: messagedata.echo, batonholders: messagedata.batonholders});
+				var messageObj = JSON.stringify({event: "relay-put", userid: messagedata.userid, value: messagedata.value, key: messagedata.key, recipient: messagedata.recipient, echo: messagedata.echo, batonholders: messagedata.batonholders});
 				room[messagedata.recipient].socket.send(messageObj);
 
 				break;
 			case "relay-get":
-				console.log("PEER", messagedata.userid, "SETTING KEY-VALUE PAIR FOR", messagedata.recipient);
+				console.log("PEER", messagedata.userid, "GETTING KEY-VALUE PAIR FROM", messagedata.recipient);
 
 				var room = global.signalClients;
 
